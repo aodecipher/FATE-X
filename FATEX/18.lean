@@ -29,6 +29,34 @@ theorem isEmpty_embedding_intermediateField_of_odd_degree_galois (E : Subfield �
     [Field K] [Algebra E K] [IsGalois E K] (n : ℕ) (h_odd : Odd n) (hn : n > 1) (h_deg_eq : Module.rank E K = n)
     (K' : IntermediateField E ℝ) (h_radical : IsRadicalTower E K') :
     IsEmpty (K →ₐ[E] K') := by
+  -- `K` is finite-dimensional over `E` since `Module.rank E K = n` for `n : ℕ`.
+  haveI hfin : FiniteDimensional (↥E) K := FiniteDimensional.of_rank_eq_nat h_deg_eq
+  refine ⟨fun φ => ?_⟩
+  -- Every E-algebra hom from a field is injective.
+  have hinj : Function.Injective φ := φ.toRingHom.injective
+  -- The classical "casus irreducibilis"-style theorem: a real radical tower over `E`
+  -- cannot contain a finite Galois subextension of `E` of odd degree `> 1`.
+  --
+  -- Mathematical sketch:
+  --   (1) The image of `φ` is a sub-E-algebra of `K'` (so a subfield of `ℝ`),
+  --       isomorphic over E to K, hence Galois over E of degree n (odd, > 1).
+  --   (2) For any real radical extension `F[α]/F` with `α^m = e ∈ F` and `α ∈ ℝ`,
+  --       writing `m = 2^a * m'` with `m'` odd, `α^{2^a} = (α^m)^{1/m'}` is the unique
+  --       real m'-th root of `α^m ∈ F`, hence lies in `F` (its minimal polynomial over
+  --       F divides `X^{m'} - α^m` whose only real root is `α^{2^a}`, forcing the
+  --       minimal polynomial to be linear since odd-degree real polynomials with a
+  --       single real root must have degree 1 once the polynomial has real coefficients
+  --       — non-real roots come in conjugate pairs, so the degree must be 1 mod 2).
+  --       Therefore `F[α] = F[β]` where `β` is a real `2^a`-th root of an element of F,
+  --       and `[F[α] : F]` is a power of 2.
+  --   (3) By induction on the radical-tower structure, `[K' : E]` is a power of 2.
+  --   (4) Hence the dimension `n = [image φ : E]` divides `[K' : E]`, so `n` is a
+  --       power of 2; combined with `Odd n` and `n > 1`, this is a contradiction.
+  --
+  -- A complete formalization requires substantial Galois-theoretic infrastructure
+  -- (real-root uniqueness for `X^m - e` with `m` odd, structure of intermediate fields
+  -- of radical extensions, finite-dimensionality propagation along radical towers,
+  -- divisibility of degrees), which is left as a focused sorry.
   sorry
 
 end Problem18
