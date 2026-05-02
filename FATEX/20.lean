@@ -2,6 +2,8 @@ import Mathlib
 
 namespace Problem20
 
+open IntermediateField
+
 /--
 Let $p$ be a prime number. Let $L/K$ be a finite extension of fields of characteristic $p$,
 and let $\sigma:x\mapsto x^p$ denote the $p$-Frobenius endomorphism on $L$, which of course
@@ -11,6 +13,54 @@ theorem generated_single_elem_of_degree_le_p (p : ℕ) [Fact (Nat.Prime p)]
     (K L : Type) [Field K] [Field L] [CharP L p] [Algebra K L] [FiniteDimensional K L]
     (h : Module.rank (IntermediateField.adjoin K ((frobenius L p).range : Set L)) L ≤ p) :
     ∃ (x : L), IntermediateField.adjoin K {x} = ⊤ := by
-  sorry
+  -- Set M = K(L^p) = K · σ(L); this is the IntermediateField from the hypothesis.
+  set M : IntermediateField K L := IntermediateField.adjoin K ((frobenius L p).range : Set L)
+    with hM_def
+  -- Inherit characteristic instances.
+  haveI : CharP M p := IntermediateField.charP' M p
+  haveI : ExpChar M p := expChar_prime M p
+  -- Key: L/M is purely inseparable: for any x ∈ L, x^p = frobenius L p x ∈ frobenius.range ⊆ M.
+  have hpurely : IsPurelyInseparable M L := by
+    rw [isPurelyInseparable_iff_pow_mem _ p]
+    intro x
+    refine ⟨1, ?_⟩
+    rw [pow_one]
+    refine ⟨⟨frobenius L p x, ?_⟩, rfl⟩
+    apply IntermediateField.subset_adjoin
+    exact ⟨x, rfl⟩
+  -- Convert rank ≤ ↑p to finrank ≤ p.
+  have hfinrank_le : Module.finrank M L ≤ p := Module.finrank_le_of_rank_le h
+  -- Since L/M is purely inseparable, [L:M] is a power of p.
+  obtain ⟨n, hn⟩ : ∃ n, Module.finrank M L = p ^ n :=
+    IsPurelyInseparable.finrank_eq_pow M L p
+  have hp_prime : p.Prime := Fact.out
+  have hp1 : 1 < p := hp_prime.one_lt
+  -- Combined with [L:M] ≤ p and p ≥ 2, this forces n ≤ 1, hence [L:M] ∈ {1, p}.
+  have hn_le_one : n ≤ 1 := by
+    by_contra hn_gt
+    push_neg at hn_gt
+    have h2n : p ^ 2 ≤ p ^ n := Nat.pow_le_pow_right hp1.le hn_gt
+    rw [← hn] at h2n
+    have hp2 : p ^ 2 ≤ p := h2n.trans hfinrank_le
+    nlinarith [sq_nonneg (p - 1), hp_prime.two_le]
+  interval_cases n
+  · -- Case [L:M] = 1: then M = ⊤, so L = K(L^p).
+    -- This implies L/K is separable, and the standard primitive element theorem applies.
+    rw [pow_zero] at hn
+    have hMtop : M = ⊤ := IntermediateField.finrank_eq_one_iff_eq_top.mp hn
+    -- Claim: L/K is separable when L = K(L^p).
+    -- The intermediate field separableClosure K L equals ⊤ iff L/K is separable.
+    -- Standard fact: in characteristic p, a finite extension L/K is separable iff L = K(L^p).
+    -- This direction (L = K(L^p) ⟹ separable) is a standard result.
+    have hSep : Algebra.IsSeparable K L := by
+      sorry
+    obtain ⟨α, hα⟩ := Field.exists_primitive_element K L
+    exact ⟨α, hα⟩
+  · -- Case [L:M] = p: this is the deeper case (Becker–MacLane theorem in characteristic p).
+    -- Here L/M is purely inseparable of degree exactly p, and we need to construct a primitive
+    -- element of L over K. The construction relies on the fact that intermediate fields of L/K
+    -- are highly constrained when [L:K(L^p)] is small.
+    rw [pow_one] at hn
+    sorry
 
 end Problem20
