@@ -196,7 +196,66 @@ theorem normalClosure_isPExtension_of_isPExtension (F E : Type) [Field F] [Field
     IntermediateField.fixingSubgroup (M σ)
   -- Each M σ is Galois over K' (since L/K is, transported via σ).
   haveI hMGalois : ∀ σ, IsGalois K' (M σ) := by
-    sorry
+    intro σ
+    -- Step A: Build a ring isomorphism `gKK' : K ≃+* K'` whose underlying map sends
+    -- `k : ↥K` to `σ k.1 : E` (viewed inside K'). We use that
+    -- `(σ ∘ inclusion (lift_le K)).fieldRange = K'` (by AlgHom.fieldRange_of_normal).
+    let inc : (↥K') →ₐ[F] (↥L) := IntermediateField.inclusion (IntermediateField.lift_le K)
+    let σK' : (↥K') →ₐ[F] E := σ.comp inc
+    have hσK'_range : σK'.fieldRange = K' := AlgHom.fieldRange_of_normal σK'
+    -- Compose the F-algebra equivalences `K ≃ K'` (via liftAlgEquiv) and
+    -- `K' ≃ σK'.fieldRange` (via ofInjectiveField σK'), then transport along `hσK'_range`.
+    let lift_e : (↥K) ≃ₐ[F] (↥K') := IntermediateField.liftAlgEquiv K
+    let fK' : (↥K') ≃ₐ[F] σK'.fieldRange := AlgEquiv.ofInjectiveField σK'
+    let eK'1 : σK'.fieldRange ≃ₐ[F] (↥K') := IntermediateField.equivOfEq hσK'_range
+    let gKK' : (↥K) ≃ₐ[F] (↥K') := lift_e.trans (fK'.trans eK'1)
+    -- Step B: Build `gLM : L ≃+* ↥(M σ)` realised by σ.
+    let fL : (↥L) ≃ₐ[F] σ.fieldRange := AlgEquiv.ofInjectiveField σ
+    have hM_range : σ.fieldRange = (M σ).restrictScalars F := by
+      apply SetLike.coe_injective; rfl
+    let eM1 : σ.fieldRange ≃ₐ[F] (M σ).restrictScalars F :=
+      IntermediateField.equivOfEq hM_range
+    let eM2 : ((M σ).restrictScalars F) ≃ₐ[F] ↥(M σ) :=
+      { toFun := id
+        invFun := id
+        left_inv := fun _ => rfl
+        right_inv := fun _ => rfl
+        map_mul' := fun _ _ => rfl
+        map_add' := fun _ _ => rfl
+        commutes' := fun _ => rfl }
+    let gLM : (↥L) ≃ₐ[F] ↥(M σ) := (fL.trans eM1).trans eM2
+    -- Step C: The compatibility square
+    --   `algebraMap K' (M σ) ∘ gKK' = gLM ∘ algebraMap K L`
+    -- as ring homs `K →+* ↥(M σ)`.
+    have hcomp : (algebraMap (↥K') ↥(M σ)).comp (gKK' : (↥K) →+* ↥K') =
+        (gLM : (↥L) →+* ↥(M σ)).comp (algebraMap (↥K) (↥L)) := by
+      ext x
+      -- After `ext x` the goal has both sides projected to E (via the subtype coercion).
+      -- LHS: σK' (lift_e x) viewed in K' ⊆ E, RHS: σ (algebraMap K L x).
+      change ((gKK' x : ↥K') : E) = (gLM (algebraMap (↥K) (↥L) x) : E)
+      have hLHS : ((gKK' x : ↥K') : E) = σK' (lift_e x) := by
+        change (((eK'1 (fK' (lift_e x))) : ↥K') : E) = σK' (lift_e x)
+        rfl
+      have hRHS : (gLM (algebraMap (↥K) (↥L) x) : E) = σ (algebraMap (↥K) (↥L) x) := by
+        change ((eM2 (eM1 (fL (algebraMap (↥K) (↥L) x)))) : E) = σ _
+        rfl
+      rw [hLHS, hRHS]
+      -- σK' (lift_e x) = σ (inc (lift_e x)) = σ x.1 (Subtype.ext, both sides equal in L).
+      show σ (inc (lift_e x)) = σ (algebraMap (↥K) (↥L) x)
+      congr 1
+    -- Step D: Apply Normal.of_equiv_equiv.
+    haveI : Algebra.IsAlgebraic (↥K) (↥L) :=
+      Algebra.IsAlgebraic.of_finite (↥K) (↥L)
+    haveI hNormalKL : Normal (↥K) (↥L) := IsGalois.to_normal
+    haveI : Normal (↥K') ↥(M σ) :=
+      Normal.of_equiv_equiv (F := ↥K) (E := ↥L) (M := ↥K') (N := ↥(M σ))
+        (f := (gKK' : (↥K) ≃+* ↥K')) (g := (gLM : (↥L) ≃+* ↥(M σ))) hcomp
+    -- Step E: Separability `K' ⊆ M σ`, transported from `K ⊆ L` via the same square.
+    haveI hsKL' : Algebra.IsSeparable (↥K) (↥L) := IsGalois.to_isSeparable
+    haveI : Algebra.IsSeparable (↥K') ↥(M σ) :=
+      Algebra.IsSeparable.of_equiv_equiv (A₁ := ↥K) (B₁ := ↥L) (A₂ := ↥K') (B₂ := ↥(M σ))
+        (gKK' : (↥K) ≃+* ↥K') (gLM : (↥L) ≃+* ↥(M σ)) hcomp
+    exact { }
   -- Hence each N σ is normal in Gal(E/K').
   haveI hN_normal : ∀ σ, (N σ).Normal := by
     intro σ
