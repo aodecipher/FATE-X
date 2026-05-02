@@ -259,7 +259,17 @@ theorem normalClosure_isPExtension_of_isPExtension (F E : Type) [Field F] [Field
       exact OrderDual.toDual_inj.mp hgal_eq
     -- Step 2: ⨆ σ, M σ = ⊤ in IntermediateField K' E (since the underlying sets are
     -- determined by ⨆ σ.fieldRange = ⊤ in IntermediateField F E by IsNormalClosure).
-    sorry
+    have hsup_F : (⨆ σ : (↥L →ₐ[F] E), σ.fieldRange) = (⊤ : IntermediateField F E) := by
+      rw [← normalClosure_def F (↥L) E, normalClosure_eq_iSup_adjoin F (↥L) E]
+      exact h_normalClosure.adjoin_rootSet
+    have hadj_F : IntermediateField.adjoin F
+        (⋃ σ : (↥L →ₐ[F] E), (σ.fieldRange : Set E)) = ⊤ := by
+      rw [← IntermediateField.iSup_eq_adjoin]; exact hsup_F
+    have hadj_K' : IntermediateField.adjoin (↥K')
+        (⋃ σ : (↥L →ₐ[F] E), (σ.fieldRange : Set E)) = ⊤ :=
+      IntermediateField.adjoin_eq_top_of_adjoin_eq_top F hadj_F
+    rw [IntermediateField.iSup_eq_adjoin]
+    convert hadj_K' using 2
   -- Apply the helper lemma.
   exact natCard_pow_of_iInf_normal_eq_bot N hN_inter p hp hN_index_pow
 
