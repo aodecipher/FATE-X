@@ -10,6 +10,40 @@ class IsPExtension (F E : Type) [Field F] [Field E] [Algebra F E]
     (p : ℕ) : Prop extends IsGalois F E where
     rank_eq_pow : ∃ (n : ℕ), Module.rank F E = p ^ n
 
+/-- Group-theoretic helper: if a finite group `G` has a finite family of normal subgroups whose
+intersection is `⊥` and each has p-power index, then `Nat.card G` is a power of `p`. -/
+private lemma natCard_pow_of_iInf_normal_eq_bot
+    {G : Type*} [Group G] [Finite G] {ι : Type*} [Fintype ι]
+    (N : ι → Subgroup G) [∀ i, (N i).Normal]
+    (h_inter : ⨅ i, N i = ⊥)
+    (p : ℕ) (hp : p.Prime)
+    (h_pow : ∀ i, ∃ k, (N i).index = p ^ k) :
+    ∃ n, Nat.card G = p ^ n := by
+  classical
+  let f : G →* ∀ i, G ⧸ N i := Pi.monoidHom fun i => QuotientGroup.mk' (N i)
+  have hker : f.ker = ⊥ := by
+    rw [← h_inter]
+    ext g
+    simp [f, MonoidHom.mem_ker, funext_iff, Pi.monoidHom_apply, Subgroup.mem_iInf]
+  have hinj : Function.Injective f := (MonoidHom.ker_eq_bot_iff _).mp hker
+  have hG_dvd_prod_quot : Nat.card G ∣ Nat.card (∀ i, G ⧸ N i) := by
+    have h1 : Nat.card G = Nat.card f.range := Nat.card_congr (Equiv.ofInjective f hinj)
+    rw [h1]
+    exact (Subgroup.card_dvd_of_le (le_refl _)).trans
+      (Subgroup.card_subgroup_dvd_card f.range)
+  have hcard_eq : Nat.card (∀ i, G ⧸ N i) = ∏ i, (N i).index := by
+    rw [Nat.card_pi]; rfl
+  rw [hcard_eq] at hG_dvd_prod_quot
+  obtain ⟨ki, hki⟩ : ∃ k : ι → ℕ, ∀ i, (N i).index = p ^ k i := by
+    choose k hk using h_pow; exact ⟨k, hk⟩
+  have hprod : ∏ i, (N i).index = p ^ (∑ i, ki i) := by
+    rw [Finset.prod_congr rfl fun i _ => hki i, ← Finset.prod_pow_eq_pow_sum]
+  rw [hprod] at hG_dvd_prod_quot
+  obtain ⟨n, _, hn⟩ := (Nat.dvd_prime_pow hp).mp hG_dvd_prod_quot
+  exact ⟨n, hn⟩
+
+set_option maxHeartbeats 800000 in
+set_option synthInstance.maxHeartbeats 80000 in
 /--
 Let $p$ be a prime and let $F$ be a field.
 Let $K$ be a finite Galois extension of $F$ whose Galois group is a $p$-group (i.e., the degree
@@ -75,7 +109,158 @@ theorem normalClosure_isPExtension_of_isPExtension (F E : Type) [Field F] [Field
   --   * Using Galois correspondence: subgroups of Gal(E/F) of p-power index intersect to a
   --     subgroup of p-power index, since [G : H₁ ∩ H₂] | [G : H₁] · [G : H₂].
   --   * Equivalently, |Gal(E/F)| divides ∏ [σ.fieldRange : F]ᵒᵖ = p^something.
+  set_option synthInstance.maxHeartbeats 80000 in
   refine { rank_eq_pow := ?_ }
-  sorry
+  set_option synthInstance.maxHeartbeats 80000 in
+  -- Step 5a: extract p-power finrank witnesses for K/F and L/K, derive finrank F L = p^(a+b)
+  obtain ⟨a, ha⟩ := IsPExtension.rank_eq_pow (F := F) (E := K) (p := p)
+  set_option synthInstance.maxHeartbeats 80000 in
+  obtain ⟨b, hb⟩ := IsPExtension.rank_eq_pow (F := K) (E := L) (p := p)
+  set_option synthInstance.maxHeartbeats 80000 in
+  have hfrK : Module.finrank F K = p ^ a := by
+    have h := (Module.finrank_eq_rank' F K).trans ha
+    exact_mod_cast h
+  set_option synthInstance.maxHeartbeats 80000 in
+  have hfrKL : Module.finrank K L = p ^ b := by
+    have h := (Module.finrank_eq_rank' K L).trans hb
+    exact_mod_cast h
+  set_option synthInstance.maxHeartbeats 80000 in
+  have hfrL : Module.finrank F L = p ^ (a + b) := by
+    rw [pow_add, ← hfrK, ← hfrKL]
+    exact (Module.finrank_mul_finrank F K L).symm
+  -- Step 5b: Reduce to showing finrank F E is a p-power.
+  suffices h : ∃ n, Module.finrank F E = p ^ n by
+    obtain ⟨n, hn⟩ := h
+    exact ⟨n, by rw [← Module.finrank_eq_rank' F E, hn]; push_cast; rfl⟩
+  -- Step 5c: Use IsGalois.card_aut_eq_finrank to convert to a Galois group cardinality question.
+  rw [show Module.finrank F E = Nat.card (E ≃ₐ[F] E) from
+      (IsGalois.card_aut_eq_finrank F E).symm]
+  -- Goal: ∃ n, Nat.card (E ≃ₐ[F] E) = p ^ n
+  -- Step 5d: Lift K to an IntermediateField F E (= L's image of K via the inclusion L ↪ E).
+  set K' : IntermediateField F E := IntermediateField.lift K with hK'_def
+  -- K' is F-algebra-isomorphic to K, so finite-dim of dim p^a, and Galois over F.
+  haveI : FiniteDimensional F K' := by
+    have e : K ≃ₐ[F] K' := IntermediateField.liftAlgEquiv K
+    exact LinearEquiv.finiteDimensional e.toLinearEquiv
+  have hfrK' : Module.finrank F K' = p ^ a := by
+    have e : K ≃ₐ[F] K' := IntermediateField.liftAlgEquiv K
+    rw [← hfrK, LinearEquiv.finrank_eq e.toLinearEquiv]
+  haveI : IsGalois F K' := by
+    have e : K ≃ₐ[F] K' := IntermediateField.liftAlgEquiv K
+    exact IsGalois.of_algEquiv e
+  -- E/K' is Galois (since E/F is Galois, by tower top).
+  haveI : IsGalois K' E := IsGalois.tower_top_of_isGalois F K' E
+  haveI : FiniteDimensional K' E := Module.Finite.of_restrictScalars_finite F _ _
+  -- |Gal(E/F)| = |Gal(E/K')| * |Gal(K'/F)|
+  -- equivalently finrank F E = finrank F K' * finrank K' E.
+  -- We show finrank K' E is a p-power; then finrank F E is too.
+  have hfrE : Module.finrank F E = Module.finrank F K' * Module.finrank K' E :=
+    (Module.finrank_mul_finrank F K' E).symm
+  -- Apply the helper lemma to Gal(E/K').
+  rw [show Nat.card (E ≃ₐ[F] E) = Module.finrank F E from IsGalois.card_aut_eq_finrank F E,
+      hfrE, hfrK']
+  -- Goal: ∃ n, p ^ a * Module.finrank K' E = p ^ n
+  suffices h : ∃ n, Module.finrank K' E = p ^ n by
+    obtain ⟨n, hn⟩ := h
+    refine ⟨a + n, ?_⟩
+    rw [hn, pow_add]
+  -- Step 5e: Apply the helper lemma natCard_pow_of_iInf_normal_eq_bot to Gal(E/K').
+  -- The family of subgroups is indexed by σ : L →ₐ[F] E.
+  -- Each N_σ = fixingSubgroup of (the K'-extended-scalars of σ.fieldRange).
+  rw [show Module.finrank K' E = Nat.card (E ≃ₐ[K'] E) from
+      (IsGalois.card_aut_eq_finrank K' E).symm]
+  -- Key facts about Hom_F(L, E):
+  haveI hHomFin : Finite (L →ₐ[F] E) := inferInstance
+  haveI hHomFin' : Fintype (L →ₐ[F] E) := Fintype.ofFinite _
+  -- For each σ : L →ₐ[F] E, σ fixes K' (as σ|_K' : K' → E is an F-embedding of normal K'/F).
+  -- Hence σ.fieldRange ⊇ K' inside E. We "extend scalars" to get an IntermediateField K' E.
+  haveI : Normal F K := IsGalois.to_normal
+  have hK'_le : ∀ σ : L →ₐ[F] E, K' ≤ σ.fieldRange := by
+    intro σ
+    have hle : K' ≤ L := IntermediateField.lift_le K
+    let inc : K' →ₐ[F] L := IntermediateField.inclusion hle
+    let f : K' →ₐ[F] E := σ.comp inc
+    have h_eq : f.fieldRange = K' := AlgHom.fieldRange_of_normal f
+    have hf_le : f.fieldRange ≤ σ.fieldRange := by
+      intro y hy
+      obtain ⟨z, hz⟩ := hy
+      exact ⟨inc z, hz⟩
+    intro x hx
+    rw [← h_eq] at hx
+    exact hf_le hx
+  -- Define M_σ ∈ IntermediateField K' E for each σ.
+  set M : (L →ₐ[F] E) → IntermediateField K' E := fun σ =>
+    IntermediateField.extendScalars (hK'_le σ) with hM_def
+  -- Define the normal subgroups N_σ = fixingSubgroup (M σ).
+  let N : (L →ₐ[F] E) → Subgroup (E ≃ₐ[K'] E) := fun σ =>
+    IntermediateField.fixingSubgroup (M σ)
+  -- Each M σ is Galois over K' (since L/K is, transported via σ).
+  haveI hMGalois : ∀ σ, IsGalois K' (M σ) := by
+    sorry
+  -- Hence each N σ is normal in Gal(E/K').
+  haveI hN_normal : ∀ σ, (N σ).Normal := by
+    intro σ
+    haveI := hMGalois σ
+    exact IsGalois.fixingSubgroup_normal_of_isGalois (M σ)
+  -- Each N σ has p-power index = finrank K' (M σ) = p^b.
+  have hN_index_pow : ∀ σ, ∃ k, (N σ).index = p ^ k := by
+    intro σ
+    refine ⟨b, ?_⟩
+    -- Step 1: (N σ).index = finrank K' (M σ).
+    have hindex_eq : (N σ).index = Module.finrank K' (M σ) := by
+      have h2 : Nat.card (E ≃ₐ[K'] E) = Module.finrank K' E := IsGalois.card_aut_eq_finrank K' E
+      have h3 : Nat.card (IntermediateField.fixingSubgroup (M σ)) = Module.finrank (M σ) E :=
+        IsGalois.card_fixingSubgroup_eq_finrank (M σ)
+      haveI : FiniteDimensional K' (M σ) := IntermediateField.finiteDimensional_left (M σ)
+      haveI : FiniteDimensional (M σ) E := IntermediateField.finiteDimensional_right (M σ)
+      have h4 : Module.finrank K' (M σ) * Module.finrank (M σ) E = Module.finrank K' E :=
+        Module.finrank_mul_finrank K' (M σ) E
+      have h1 : (IntermediateField.fixingSubgroup (M σ)).index *
+          Nat.card (IntermediateField.fixingSubgroup (M σ)) = Nat.card (E ≃ₐ[K'] E) := by
+        rw [mul_comm]
+        exact (IntermediateField.fixingSubgroup (M σ)).card_mul_index
+      rw [h2, h3, ← h4] at h1
+      have hpos : Module.finrank (M σ) E > 0 := Module.finrank_pos
+      exact Nat.eq_of_mul_eq_mul_right hpos h1
+    -- Step 2: finrank K' (M σ) = p^b. Use that M σ = extendScalars (hK'_le σ),
+    -- so finrank F σ.fieldRange = finrank F K' * finrank K' (M σ) = p^a * finrank K' (M σ).
+    -- And finrank F σ.fieldRange = finrank F L = p^(a+b) via L ≃ₐ[F] σ.fieldRange.
+    have hfrM_F : Module.finrank F (σ.fieldRange) = p ^ (a + b) := by
+      have e : L ≃ₐ[F] σ.fieldRange := AlgEquiv.ofInjectiveField σ
+      rw [← hfrL, LinearEquiv.finrank_eq e.toLinearEquiv]
+    have htower : Module.finrank F (σ.fieldRange) =
+        Module.finrank F K' * Module.finrank K' (M σ) := by
+      show Module.finrank F (σ.fieldRange) =
+          Module.finrank F K' * Module.finrank K' (IntermediateField.extendScalars (hK'_le σ))
+      rw [← IntermediateField.relfinrank_eq_finrank_of_le (hK'_le σ)]
+      rw [IntermediateField.finrank_bot_mul_relfinrank (hK'_le σ)]
+    rw [hfrM_F, hfrK'] at htower
+    -- p^(a+b) = p^a * finrank K' (M σ); divide both sides by p^a.
+    have hppos : (0 : ℕ) < p ^ a := pow_pos hp.pos _
+    have : Module.finrank K' (M σ) = p ^ b := by
+      have : p ^ a * Module.finrank K' (M σ) = p ^ a * p ^ b := by
+        rw [← pow_add]; exact htower.symm
+      exact Nat.eq_of_mul_eq_mul_left hppos this
+    rw [hindex_eq, this]
+  -- The intersection ⨅ N σ = ⊥ (since ⨆ M σ = ⊤ in IntermediateField K' E).
+  have hN_inter : ⨅ σ, N σ = ⊥ := by
+    -- Step 1: Galois-anti-iso sends iSup ↦ iInf and ⊤ ↦ ⊥.
+    -- It suffices to show ⨆ σ, M σ = ⊤ in IntermediateField K' E.
+    suffices h_iSup : (⨆ σ, M σ) = (⊤ : IntermediateField K' E) by
+      let fGal : IntermediateField K' E ≃o (Subgroup Gal(E/K'))ᵒᵈ :=
+        IsGalois.intermediateFieldEquivSubgroup
+      have hgal_eq : fGal (⨆ σ, M σ) = fGal ⊤ := by rw [h_iSup]
+      rw [show fGal (⨆ σ, M σ) =
+            OrderDual.toDual (⨅ σ, IntermediateField.fixingSubgroup (M σ)) by
+              rw [map_iSup]; rfl,
+          show fGal (⊤ : IntermediateField K' E) = OrderDual.toDual ⊥ by
+            show OrderDual.toDual (IntermediateField.fixingSubgroup ⊤) = OrderDual.toDual ⊥
+            rw [IntermediateField.fixingSubgroup_top]] at hgal_eq
+      exact OrderDual.toDual_inj.mp hgal_eq
+    -- Step 2: ⨆ σ, M σ = ⊤ in IntermediateField K' E (since the underlying sets are
+    -- determined by ⨆ σ.fieldRange = ⊤ in IntermediateField F E by IsNormalClosure).
+    sorry
+  -- Apply the helper lemma.
+  exact natCard_pow_of_iInf_normal_eq_bot N hN_inter p hp hN_index_pow
 
 end Problem16
