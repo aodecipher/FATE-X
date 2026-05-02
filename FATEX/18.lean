@@ -21,6 +21,27 @@ inductive IsRadicalTower : ∀ (E : Type) (F : Type) [CommRing E] [CommRing F] [
       IsRadicalExtension F' F → IsRadicalTower E F' → IsRadicalTower E F
 
 /--
+Focused mathematical content of the casus-irreducibilis-style theorem: a radical tower of
+intermediate fields of `ℝ` over a subfield `E ⊆ ℝ` is finite-dimensional over `E`, and its
+degree over `E` is a power of two.
+
+Proof sketch (left as a focused sorry):
+For any real radical extension `F[α]/F` with `α^m = e ∈ F` and `α ∈ ℝ`, writing
+`m = 2^a * m'` with `m'` odd, the element `α^{2^a}` is the unique real `m'`-th root of
+`α^m ∈ F` and hence lies in `F` (a non-linear real polynomial with a single real root and
+real coefficients is impossible because non-real roots come in conjugate pairs).
+Therefore `F[α] = F[β]` where `β` is a real `2^a`-th root of an element of `F`, and
+`[F[α] : F]` is a power of two. Induction on the radical-tower structure gives the
+result for `K'`.
+-/
+private lemma finrank_pow_two_of_real_radical_tower
+    (E : Subfield ℝ) (K' : IntermediateField (↥E) ℝ) (h_radical : IsRadicalTower (↥E) (↥K')) :
+    Module.Finite (↥E) (↥K') ∧ ∃ k : ℕ, Module.finrank (↥E) (↥K') = 2 ^ k := by
+  sorry
+
+set_option synthInstance.maxHeartbeats 400000 in
+set_option maxHeartbeats 800000 in
+/--
 Let \( E \) be a subfield of \( \mathbb{R} \) and let \( K/E \) be a finite Galois extension of
 odd degree \( > 1 \). Prove that \( K \) cannot be \( E \)-embedded into a radical tower that is
 a subfield of \( \mathbb{R} \).
@@ -31,32 +52,40 @@ theorem isEmpty_embedding_intermediateField_of_odd_degree_galois (E : Subfield �
     IsEmpty (K →ₐ[E] K') := by
   -- `K` is finite-dimensional over `E` since `Module.rank E K = n` for `n : ℕ`.
   haveI hfin : FiniteDimensional (↥E) K := FiniteDimensional.of_rank_eq_nat h_deg_eq
+  -- Apply the focused helper: `K'` is finite over `E`, with `[K' : E] = 2^k`.
+  obtain ⟨h_fin_K', k, hk⟩ := finrank_pow_two_of_real_radical_tower E K' h_radical
+  haveI : Module.Finite (↥E) (↥K') := h_fin_K'
   refine ⟨fun φ => ?_⟩
   -- Every E-algebra hom from a field is injective.
   have hinj : Function.Injective φ := φ.toRingHom.injective
-  -- The classical "casus irreducibilis"-style theorem: a real radical tower over `E`
-  -- cannot contain a finite Galois subextension of `E` of odd degree `> 1`.
-  --
-  -- Mathematical sketch:
-  --   (1) The image of `φ` is a sub-E-algebra of `K'` (so a subfield of `ℝ`),
-  --       isomorphic over E to K, hence Galois over E of degree n (odd, > 1).
-  --   (2) For any real radical extension `F[α]/F` with `α^m = e ∈ F` and `α ∈ ℝ`,
-  --       writing `m = 2^a * m'` with `m'` odd, `α^{2^a} = (α^m)^{1/m'}` is the unique
-  --       real m'-th root of `α^m ∈ F`, hence lies in `F` (its minimal polynomial over
-  --       F divides `X^{m'} - α^m` whose only real root is `α^{2^a}`, forcing the
-  --       minimal polynomial to be linear since odd-degree real polynomials with a
-  --       single real root must have degree 1 once the polynomial has real coefficients
-  --       — non-real roots come in conjugate pairs, so the degree must be 1 mod 2).
-  --       Therefore `F[α] = F[β]` where `β` is a real `2^a`-th root of an element of F,
-  --       and `[F[α] : F]` is a power of 2.
-  --   (3) By induction on the radical-tower structure, `[K' : E]` is a power of 2.
-  --   (4) Hence the dimension `n = [image φ : E]` divides `[K' : E]`, so `n` is a
-  --       power of 2; combined with `Odd n` and `n > 1`, this is a contradiction.
-  --
-  -- A complete formalization requires substantial Galois-theoretic infrastructure
-  -- (real-root uniqueness for `X^m - e` with `m` odd, structure of intermediate fields
-  -- of radical extensions, finite-dimensionality propagation along radical towers,
-  -- divisibility of degrees), which is left as a focused sorry.
-  sorry
+  -- `Module.finrank E K = n` from `Module.rank E K = n`.
+  have h_finrank_K : Module.finrank (↥E) K = n := by
+    have h_cast : ((Module.finrank (↥E) K : ℕ) : Cardinal) = ((n : ℕ) : Cardinal) := by
+      rw [Module.finrank_eq_rank, h_deg_eq]
+    exact_mod_cast h_cast
+  -- The image of `φ` (as IntermediateField) has `finrank E = n` via `AlgEquiv.ofInjective`,
+  -- using that `φ.fieldRange.toSubalgebra = φ.range` definitionally.
+  have h_eq : Module.finrank (↥E) ↥(φ.fieldRange) = n := by
+    have hAE : K ≃ₐ[↥E] ↥(φ.range) := AlgEquiv.ofInjective φ hinj
+    have h_range : Module.finrank (↥E) ↥(φ.range) = Module.finrank (↥E) K :=
+      (hAE.toLinearEquiv.finrank_eq).symm
+    show Module.finrank (↥E) ↥(φ.range) = n
+    rw [h_range, h_finrank_K]
+  -- `[image φ : E]` divides `[⊤ : E]` in `K'`, which equals `[K' : E] = 2^k`.
+  have h_dvd : Module.finrank (↥E) ↥(φ.fieldRange) ∣
+      Module.finrank (↥E) ↥(⊤ : IntermediateField (↥E) (↥K')) :=
+    IntermediateField.finrank_dvd_of_le_right le_top
+  have h_top : Module.finrank (↥E) ↥(⊤ : IntermediateField (↥E) (↥K')) = Module.finrank (↥E) (↥K') :=
+    IntermediateField.topEquiv.toLinearEquiv.finrank_eq
+  rw [h_eq, h_top, hk] at h_dvd
+  -- `n ∣ 2^k`: by `Nat.dvd_prime_pow`, `n = 2^j` for some `j`.
+  obtain ⟨j, _hj_le, hj_eq⟩ := (Nat.dvd_prime_pow Nat.prime_two).mp h_dvd
+  rcases Nat.eq_zero_or_pos j with hj0 | hj_pos
+  · -- `j = 0` gives `n = 1`, contradicting `hn : n > 1`.
+    rw [hj0, pow_zero] at hj_eq; omega
+  · -- `j ≥ 1` makes `n` even, contradicting `Odd n`.
+    have h_two_dvd : 2 ∣ n := by
+      rw [hj_eq]; exact dvd_pow_self 2 hj_pos.ne'
+    exact h_odd.not_two_dvd_nat h_two_dvd
 
 end Problem18
