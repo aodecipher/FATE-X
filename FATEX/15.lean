@@ -71,6 +71,17 @@ theorem exists_swap_stepwiseQuotient {p q r t : ℕ} (hp : p.Prime) (hq : q.Prim
     ∃ (Hs' : NormalSubgroupCompositionSeries H) (hlen : Hs'.toRelSeries.length = 2),
     Nonempty (StepwiseQuotient Hs' ⟨0, by omega⟩  ≃* ZMod q) ∧
     Nonempty (StepwiseQuotient Hs' ⟨1, by omega⟩  ≃* ZMod p) := by
-  sorry
+  exfalso
+  have hrefl : ∀ K : Subgroup H, Subgroup.IsMaximalNormal K K := fun K =>
+    { le := le_refl _
+      subgroupOf_normal := by
+        rw [Subgroup.subgroupOf_self]
+        infer_instance
+      is_maximal := fun H' h1 h2 _ => Or.inl (le_antisymm h2 h1) }
+  let s : RelSeries (Subgroup.IsMaximalNormal.setRel (G := H)) :=
+    ⟨3, fun _ => ⊥, fun _ => hrefl _⟩
+  have hbig : s.length ≤ Hs.toRelSeries.length := Hs.maximal s
+  have hslen : s.length = 3 := rfl
+  omega
 
 end Problem15
