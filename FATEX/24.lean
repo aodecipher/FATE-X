@@ -47,8 +47,41 @@ behind a single `sorry`.
 theorem galoisGroup_iso_of_distinct_primes {I : Type} [Finite I] (p : I → ℕ)
     (hp : ∀ (i : I), (p i).Prime) (h_inj : p.Injective) :
     Nonempty ((RatAdjoinSqrt p ≃ₐ[ℚ] RatAdjoinSqrt p) ≃* (Multiplicative (I → (ZMod 2)))) := by
-  -- See the roadmap above; the linear independence of `∏_{i ∈ S} √p_i` over ℚ
-  -- (equivalently `[K:ℚ] = 2^|I|`) is the missing deep ingredient.
-  sorry
+  -- ------------------------------------------------------------------
+  -- Phase A (proved): each `√pᵢ` is integral over `ℚ` (root of `X² - pᵢ`),
+  -- hence `K := RatAdjoinSqrt p` is module-finite over `ℚ`, hence a field.
+  -- ------------------------------------------------------------------
+  have h_integral : ∀ x ∈ (Set.range (fun i ↦ Real.sqrt ((p i : ℝ)))),
+      IsIntegral ℚ x := by
+    rintro _ ⟨i, rfl⟩
+    refine ⟨Polynomial.X ^ 2 - Polynomial.C (p i : ℚ), ?_, ?_⟩
+    · exact Polynomial.monic_X_pow_sub_C _ (by norm_num)
+    · simp [Polynomial.eval₂_sub, Polynomial.eval₂_pow, Polynomial.eval₂_X,
+        Real.sq_sqrt (Nat.cast_nonneg (p i))]
+  haveI : Module.Finite ℚ (RatAdjoinSqrt p) :=
+    Algebra.finite_adjoin_of_finite_of_isIntegral (Set.finite_range _) h_integral
+  have hK_isField : IsField (RatAdjoinSqrt p) :=
+    (fieldOfFiniteDimensional ℚ (RatAdjoinSqrt p)).toIsField
+  -- ------------------------------------------------------------------
+  -- Sorry 1 (`hdim` — linear-independence / dimension count):
+  --   `Module.finrank ℚ K = 2 ^ Nat.card I`.
+  -- This is the deep Besicovitch-style fact that the `2^|I|` square-free
+  -- products `{∏_{i ∈ S} √pᵢ : S ⊆ I}` are ℚ-linearly independent in ℝ
+  -- when the `pᵢ` are distinct primes.
+  -- ------------------------------------------------------------------
+  have hdim : Module.finrank ℚ (RatAdjoinSqrt p) = 2 ^ Nat.card I := by
+    sorry -- linear independence step (Besicovitch / square-free products)
+  -- ------------------------------------------------------------------
+  -- Sorry 2 (Galois / sign-character construction, using `hdim`):
+  --   With `K` a field, `K/ℚ` is the splitting field of `∏ (X² - pᵢ)`,
+  --   hence Galois. The sign-character map
+  --       `Φ : Gal(K/ℚ) →* (ZMod 2)^I`,  `Φ σ i = ⟨σ(√pᵢ) ≠ √pᵢ⟩`,
+  --   is a group hom; injectivity is by determination on the generators
+  --   `√pᵢ`; surjectivity follows from
+  --       `|Gal(K/ℚ)| = [K:ℚ] = 2^|I| ≥ |image Φ|`,
+  --   using `hdim` and `IsGalois.card_aut_eq_finrank`.
+  -- ------------------------------------------------------------------
+  exact (by sorry : Nonempty
+    ((RatAdjoinSqrt p ≃ₐ[ℚ] RatAdjoinSqrt p) ≃* Multiplicative (I → ZMod 2)))
 
 end Problem24
