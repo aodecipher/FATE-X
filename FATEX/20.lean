@@ -49,9 +49,17 @@ theorem generated_single_elem_of_degree_le_p (p : ℕ) [Fact (Nat.Prime p)]
     rw [pow_zero] at hn
     have hMtop : M = ⊤ := IntermediateField.finrank_eq_one_iff_eq_top.mp hn
     -- Claim: L/K is separable when L = K(L^p).
-    -- The intermediate field separableClosure K L equals ⊤ iff L/K is separable.
     -- Standard fact: in characteristic p, a finite extension L/K is separable iff L = K(L^p).
-    -- This direction (L = K(L^p) ⟹ separable) is a standard result.
+    -- The classical proof uses a basis argument: pick a K-basis e_1,…,e_n of L. Since L = K(L^p),
+    -- the family {e_i^p} also K-spans L, hence is a K-basis (matching cardinality in finite dim).
+    -- This implies the trace form is non-degenerate, hence L/K is separable.
+    -- Mathlib has the *converse* (`Field.span_map_pow_expChar_pow_eq_top_of_isSeparable`,
+    -- `LinearIndependent.map_pow_expChar_pow_of_isSeparable`) but **not** the forward direction
+    -- (K(L^p) = L ⟹ Algebra.IsSeparable K L) as a directly-usable lemma in Mathlib v4.28.0.
+    -- Tower-degree formulas (`Field.finInsepDegree_mul_finInsepDegree_of_isAlgebraic`,
+    -- `Field.rank_mul_insepDegree_of_isPurelyInseparable`) all turn out to be tautological when
+    -- M = ⊤ (since then M ≃ₐ[K] L), so they don't help. Constructing the basis-based proof from
+    -- scratch is substantial work (~50–100 lines) and is left as a focused sorry here.
     have hSep : Algebra.IsSeparable K L := by
       sorry
     obtain ⟨α, hα⟩ := Field.exists_primitive_element K L
