@@ -40,6 +40,11 @@ theorem isGalois_and_rank_eq_of_isPrimitiveRoot_sq (p : ℕ) (hp : p.Prime) {K :
     hgalKL'L, hgalLL', ?_⟩
   -- Module.rank L L' = p from the tower rank formula:
   --   rank K L' = rank K L * rank L L', i.e. p² = p * rank L L', so rank L L' = p.
-  sorry
+  have htower := rank_mul_rank K L L'L
+  rw [hdeg] at htower
+  have hrank' : Module.rank K ↥L'L = (p : Cardinal) ^ 2 := hrank
+  rw [hrank', sq] at htower
+  have hp_ne : (p : ℕ) ≠ 0 := hp.pos.ne'
+  exact (Cardinal.natCast_mul_inj hp_ne).mp htower
 
 end Problem27
