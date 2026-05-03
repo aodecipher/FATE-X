@@ -164,6 +164,26 @@ theorem generated_single_elem_of_degree_le_p (p : ℕ) [Fact (Nat.Prime p)]
     -- a non-trivial choice of α (typically α + β for an existing primitive element β of M/K).
     -- This argument is substantial (~80–150 lines) and not currently formalized in Mathlib.
     rw [pow_one] at hn
+    -- Step A: M ≠ ⊤ (since [L:M] = p > 1).
+    have hM_ne_top : M ≠ ⊤ := by
+      intro hMt
+      rw [IntermediateField.finrank_eq_one_iff_eq_top.mpr hMt] at hn
+      exact (Nat.lt_irrefl 1) (hn ▸ hp1)
+    -- Step B: Pick α ∈ L \ M.
+    have hM_lt_top : M < ⊤ := lt_of_le_of_ne le_top hM_ne_top
+    obtain ⟨α, _, hα_not⟩ : ∃ α ∈ (⊤ : IntermediateField K L), α ∉ M :=
+      SetLike.exists_of_lt hM_lt_top
+    -- Step C: M⟮α⟯ = ⊤ as an IntermediateField over M (since L/M is purely inseparable of
+    -- degree p and α ∉ M, so [M⟮α⟯ : M] > 1, but [M⟮α⟯ : M] divides [L:M] = p, hence equals p).
+    -- Equivalently, IntermediateField.adjoin M ({α} : Set L) = ⊤.
+    -- Build the primitive element step-by-step. The key remaining gap is to establish
+    -- K⟮γ⟯ = ⊤ for some γ, which requires the full Becker–MacLane argument.
+    --
+    -- Mathematical obstruction: We need a Mathlib lemma of roughly the form
+    --   "if [L:M] = p, M = K(L^p), L/M purely inseparable, then ∃ γ, K⟮γ⟯ = L"
+    -- This corresponds to Becker–MacLane (1940) and is not currently in Mathlib.
+    -- The argument uses an inductive choice of γ = α + β for a primitive element β of
+    -- separableClosure K L over K, together with a delicate degree-counting argument.
     sorry
 
 end Problem20
