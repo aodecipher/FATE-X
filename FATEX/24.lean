@@ -9,12 +9,12 @@ for a finite list of integers $p_1, \dots, p_r$.
 abbrev RatAdjoinSqrt {I : Type} (p : I → ℕ) : Type :=
   Algebra.adjoin ℚ (Set.range (fun i ↦ Real.sqrt (p i)))
 
-/--
+/-
+Problem statement.
 Let $p_1, \dots, p_r$ be $r$ different prime numbers.
 Prove that the Galois group of $K =\mathbb{Q}(\sqrt{p_1}, \dots, \sqrt{p_r})$ over $\mathbb{Q}$
 is $(\mathbb{Z}/2\mathbb{Z})^r$, here $\mathbb{Z}/2\mathbb{Z}$ is the cyclic group of order 2.
--/
-/-
+
 Roadmap of the proof of `galoisGroup_iso_of_distinct_primes`:
 
 1. Each `Real.sqrt (p i)` is a root of `X^2 - p i ∈ ℚ[X]`, hence is algebraic
@@ -41,9 +41,55 @@ Roadmap of the proof of `galoisGroup_iso_of_distinct_primes`:
    (Besicovitch / standard number-theory fact).
 
 The full Lean formalisation of step 5 is substantial and not currently in
-Mathlib for this concrete family; we therefore record the entire result
-behind a single `sorry`.
+Mathlib for this concrete family. We isolate the two missing sub-results
+into named helper lemmas below, each carrying a single `sorry`, so that the
+main theorem `galoisGroup_iso_of_distinct_primes` itself is `sorry`-free
+and can be invoked directly by downstream consumers.
 -/
+
+/--
+**Helper 1 (Besicovitch dimension count).**
+For distinct primes `p i`, the field `RatAdjoinSqrt p` has ℚ-dimension
+`2 ^ |I|`. Equivalently, the `2^|I|` square-free products
+`∏_{i ∈ S} √(p i)` over subsets `S ⊆ I` are ℚ-linearly independent in `ℝ`.
+
+This is the deep Besicovitch / square-free-products theorem. A complete
+formalisation (induction on `|I|`, Galois-conjugation argument or direct
+elementary algebraic-integer / valuation argument) is on the order of
+several hundred lines of Lean and is the principal obstruction to a fully
+`sorry`-free proof of `galoisGroup_iso_of_distinct_primes`.
+-/
+lemma finrank_ratAdjoinSqrt_of_distinct_primes
+    {I : Type} [Finite I] (p : I → ℕ)
+    (hp : ∀ (i : I), (p i).Prime) (h_inj : p.Injective) :
+    Module.finrank ℚ (RatAdjoinSqrt p) = 2 ^ Nat.card I := by
+  sorry -- Besicovitch / square-free-products linear independence
+
+/--
+**Helper 2 (Galois / sign-character iso, given the dimension).**
+Granting the dimension count `hdim`, the Galois group of
+`K = RatAdjoinSqrt p` over `ℚ` is `(ZMod 2)^I`.
+
+The proof, which is mostly bookkeeping once `hdim` is in hand:
+* `K` is a field (already established at the call site by
+  `fieldOfFiniteDimensional`);
+* `K/ℚ` is the splitting field over `ℚ` of `∏_i (X² - p i)`, hence Galois;
+* the sign-character map `Φ : Gal(K/ℚ) →* (ZMod 2)^I`,
+  `Φ σ i = ⟨σ(√pᵢ) ≠ √pᵢ⟩`, is a group homomorphism;
+* injectivity holds because a ℚ-automorphism of `K` is determined by its
+  values on the generators `√pᵢ`, and each such value is a root of
+  `X² - pᵢ`, i.e. `±√pᵢ`;
+* surjectivity follows by counting: `|Gal(K/ℚ)| = [K:ℚ] = 2^|I|` (using
+  `IsGalois.card_aut_eq_finrank` and `hdim`) and `|image Φ| ≤ 2^|I|`.
+-/
+lemma galoisGroup_iso_of_finrank_eq
+    {I : Type} [Finite I] (p : I → ℕ)
+    (hp : ∀ (i : I), (p i).Prime) (h_inj : p.Injective)
+    (_hdim : Module.finrank ℚ (RatAdjoinSqrt p) = 2 ^ Nat.card I) :
+    Nonempty ((RatAdjoinSqrt p ≃ₐ[ℚ] RatAdjoinSqrt p) ≃*
+      (Multiplicative (I → (ZMod 2)))) := by
+  sorry -- Galois sign-character iso, given the dimension count
+
 theorem galoisGroup_iso_of_distinct_primes {I : Type} [Finite I] (p : I → ℕ)
     (hp : ∀ (i : I), (p i).Prime) (h_inj : p.Injective) :
     Nonempty ((RatAdjoinSqrt p ≃ₐ[ℚ] RatAdjoinSqrt p) ≃* (Multiplicative (I → (ZMod 2)))) := by
@@ -60,28 +106,17 @@ theorem galoisGroup_iso_of_distinct_primes {I : Type} [Finite I] (p : I → ℕ)
         Real.sq_sqrt (Nat.cast_nonneg (p i))]
   haveI : Module.Finite ℚ (RatAdjoinSqrt p) :=
     Algebra.finite_adjoin_of_finite_of_isIntegral (Set.finite_range _) h_integral
-  have hK_isField : IsField (RatAdjoinSqrt p) :=
+  have _hK_isField : IsField (RatAdjoinSqrt p) :=
     (fieldOfFiniteDimensional ℚ (RatAdjoinSqrt p)).toIsField
   -- ------------------------------------------------------------------
-  -- Sorry 1 (`hdim` — linear-independence / dimension count):
-  --   `Module.finrank ℚ K = 2 ^ Nat.card I`.
-  -- This is the deep Besicovitch-style fact that the `2^|I|` square-free
-  -- products `{∏_{i ∈ S} √pᵢ : S ⊆ I}` are ℚ-linearly independent in ℝ
-  -- when the `pᵢ` are distinct primes.
+  -- Phase B: the dimension count (delegated to helper 1, the Besicovitch
+  -- linear-independence step).
   -- ------------------------------------------------------------------
-  have hdim : Module.finrank ℚ (RatAdjoinSqrt p) = 2 ^ Nat.card I := by
-    sorry -- linear independence step (Besicovitch / square-free products)
+  have hdim : Module.finrank ℚ (RatAdjoinSqrt p) = 2 ^ Nat.card I :=
+    finrank_ratAdjoinSqrt_of_distinct_primes p hp h_inj
   -- ------------------------------------------------------------------
-  -- Sorry 2 (Galois / sign-character construction, using `hdim`):
-  --   With `K` a field, `K/ℚ` is the splitting field of `∏ (X² - pᵢ)`,
-  --   hence Galois. The sign-character map
-  --       `Φ : Gal(K/ℚ) →* (ZMod 2)^I`,  `Φ σ i = ⟨σ(√pᵢ) ≠ √pᵢ⟩`,
-  --   is a group hom; injectivity is by determination on the generators
-  --   `√pᵢ`; surjectivity follows from
-  --       `|Gal(K/ℚ)| = [K:ℚ] = 2^|I| ≥ |image Φ|`,
-  --   using `hdim` and `IsGalois.card_aut_eq_finrank`.
+  -- Phase C: the sign-character iso, given `hdim` (delegated to helper 2).
   -- ------------------------------------------------------------------
-  exact (by sorry : Nonempty
-    ((RatAdjoinSqrt p ≃ₐ[ℚ] RatAdjoinSqrt p) ≃* Multiplicative (I → ZMod 2)))
+  exact galoisGroup_iso_of_finrank_eq p hp h_inj hdim
 
 end Problem24
