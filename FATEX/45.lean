@@ -29,6 +29,14 @@ theorem free_of_free_resolution {k : Type} [Field k] {r : ℕ}
     (h_gr : ∀ (i j : ℕ), IsGradedHom (𝓜 i) (𝓜 j) (C.d i j).hom)
     (h_free : ∀ (n : ℕ), 1 ≤ n ∧ n ≤ r → Module.Free (MvPolynomial (Fin r) k) (C.X n)) :
     Module.Free (MvPolynomial (Fin r) k) (C.X (r + 1)) := by
-  sorry
+  match r with
+  | 0 =>
+    -- When `r = 0`, the ring `MvPolynomial (Fin 0) k` is isomorphic to the field `k`,
+    -- hence is itself a field, and every module over a field is free.
+    have hF : IsField (MvPolynomial (Fin 0) k) :=
+      (MvPolynomial.isEmptyRingEquiv k (Fin 0)).toMulEquiv.isField (Field.toIsField k)
+    letI : Field (MvPolynomial (Fin 0) k) := hF.toField
+    exact Module.Free.of_divisionRing _ _
+  | _ + 1 => sorry
 
 end Problem45
