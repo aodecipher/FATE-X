@@ -61,13 +61,108 @@ theorem generated_single_elem_of_degree_le_p (p : ℕ) [Fact (Nat.Prime p)]
     -- M = ⊤ (since then M ≃ₐ[K] L), so they don't help. Constructing the basis-based proof from
     -- scratch is substantial work (~50–100 lines) and is left as a focused sorry here.
     have hSep : Algebra.IsSeparable K L := by
-      sorry
+      -- Inherit char-p instance to K
+      haveI : CharP K p := by
+        constructor
+        intro n
+        rw [← (algebraMap K L).injective.eq_iff, map_natCast, map_zero]
+        exact CharP.cast_eq_zero_iff L p n
+      haveI : ExpChar K p := ExpChar.prime Fact.out
+      -- Step 1: K-span of (frobenius L p).range = ⊤ (since the IntermediateField adjoin = ⊤,
+      -- and the range is multiplicatively closed, so adjoin = K-span).
+      have h_span_Lp : Submodule.span K ((frobenius L p).range : Set L) = ⊤ := by
+        haveI : Algebra.IsAlgebraic K L := Algebra.IsAlgebraic.of_finite K L
+        have hAlg : ∀ x ∈ ((frobenius L p).range : Set L), IsAlgebraic K x :=
+          fun x _ ↦ Algebra.IsAlgebraic.isAlgebraic x
+        have hCl : Submonoid.closure ((frobenius L p).range : Set L) =
+                   (frobenius L p).range.toSubmonoid := Submonoid.closure_eq _
+        have h2 := Algebra.adjoin_eq_span K ((frobenius L p).range : Set L)
+        rw [hCl] at h2
+        have h1 : (IntermediateField.adjoin K ((frobenius L p).range : Set L)).toSubalgebra =
+                  Algebra.adjoin K ((frobenius L p).range : Set L) :=
+          IntermediateField.adjoin_toSubalgebra_of_isAlgebraic hAlg
+        rw [← hM_def, hMtop, IntermediateField.top_toSubalgebra] at h1
+        rw [← h1, Algebra.top_toSubmodule] at h2
+        exact h2.symm
+      -- Step 2: For any K-basis b of L, the family (b · ^ p) also K-spans L.
+      -- Reason: K-span (b·^p) ⊇ {b_j^p} ⊆ frob.range (so ⊆ direction by membership).
+      -- Conversely, every element of frob.range is x^p for some x = Σ a_i b_i, and Frobenius
+      -- gives x^p = Σ a_i^p b_i^p with a_i^p ∈ K, hence in K-span (b·^p).
+      have h_basis_p_span : ∀ {ι : Type} (b : Module.Basis ι K L),
+                            Submodule.span K (Set.range (fun i ↦ b i ^ p)) = ⊤ := by
+        intro ι b
+        rw [← h_span_Lp]
+        apply le_antisymm
+        · exact Submodule.span_le.mpr
+            (by rintro _ ⟨i, rfl⟩; exact Submodule.subset_span ⟨b i, rfl⟩)
+        · apply Submodule.span_le.mpr
+          rintro y ⟨x, rfl⟩
+          have hx : x ∈ Submodule.span K (Set.range b) := by rw [b.span_eq]; trivial
+          refine Submodule.span_induction ?_ ?_ ?_ ?_ hx
+          · rintro _ ⟨j, rfl⟩
+            simp only [SetLike.mem_coe, frobenius_def]
+            exact Submodule.subset_span ⟨j, by simp⟩
+          · show frobenius L p 0 ∈ _; rw [map_zero]; exact Submodule.zero_mem _
+          · intro x y _ _ hxs hys
+            show frobenius L p (x + y) ∈ _; rw [map_add]
+            exact Submodule.add_mem _ hxs hys
+          · intro a x _ hxs
+            show frobenius L p (a • x) ∈ _
+            rw [Algebra.smul_def, map_mul]
+            have : frobenius L p (algebraMap K L a) = algebraMap K L (a^p) := by
+              rw [frobenius_def, ← map_pow]
+            rw [this, ← Algebra.smul_def]
+            exact Submodule.smul_mem _ _ hxs
+      -- Step 3: From step 2, deduce that for any K-LinIndep family s ⊆ L, (· ^ p) '' s is also
+      -- K-LinIndep — by extending s to a basis B, observing B^p is again a K-basis (LinIndep
+      -- via dimension count), and noting s^p ⊆ B^p is a subfamily of a LinIndep family.
+      have H : ∀ s : Finset L, LinearIndepOn K _root_.id (s : Set L) →
+                        LinearIndepOn K (fun x ↦ x ^ p) (s : Set L) := by
+        intro s hs
+        classical
+        let s' : Set L := hs.extend (Set.subset_univ _)
+        have hs_sub_s' : (s : Set L) ⊆ s' := LinearIndepOn.subset_extend hs (Set.subset_univ _)
+        let b : Module.Basis ↑s' K L := Module.Basis.extend hs
+        have hb_id : ∀ (x : ↑s'), b x = x.val := Module.Basis.extend_apply_self hs
+        haveI : Finite ↑s' := Module.Finite.finite_basis b
+        haveI : Fintype ↑s' := Fintype.ofFinite _
+        have h_li_s' : LinearIndependent K (fun x : ↑s' ↦ x.val ^ p) := by
+          have h0 : LinearIndependent K (fun x : ↑s' ↦ b x ^ p) := by
+            apply linearIndependent_of_top_le_span_of_card_eq_finrank
+            · rw [h_basis_p_span b]
+            · rw [Module.finrank_eq_card_basis b]
+          convert h0 using 1
+          funext x; rw [hb_id]
+        let emb : ↑(s : Set L) → ↑s' := fun x ↦ ⟨x.val, hs_sub_s' x.2⟩
+        have emb_inj : Function.Injective emb := fun x y h ↦
+          Subtype.ext (Subtype.mk.injEq _ _ _ _ |>.mp h)
+        exact h_li_s'.comp emb emb_inj
+      -- Step 4: Apply the Mathlib lemma to get a separable transcendence basis, which since
+      -- L/K is finite (algebraic) must be empty, hence L is separable over adjoin K ∅ = ⊥ ≃ K.
+      have hp_prime : p.Prime := Fact.out
+      obtain ⟨s, hs_tb, hs_sep⟩ :=
+        exists_isTranscendenceBasis_and_isSeparable_of_linearIndepOn_pow_of_essFiniteType
+          p hp_prime H
+      haveI : Algebra.IsAlgebraic K L := Algebra.IsAlgebraic.of_finite K L
+      have h_empty : IsEmpty ↑(s : Set L) := hs_tb.1.isEmpty_of_isAlgebraic
+      have hs_emp : (s : Set L) = ∅ := by
+        ext x
+        refine ⟨fun hx ↦ h_empty.elim ⟨x, hx⟩, fun h ↦ h.elim⟩
+      rw [hs_emp, IntermediateField.adjoin_empty] at hs_sep
+      haveI := hs_sep
+      haveI : Algebra.IsSeparable K (⊥ : IntermediateField K L) := inferInstance
+      exact Algebra.IsSeparable.trans K (⊥ : IntermediateField K L) L
     obtain ⟨α, hα⟩ := Field.exists_primitive_element K L
     exact ⟨α, hα⟩
   · -- Case [L:M] = p: this is the deeper case (Becker–MacLane theorem in characteristic p).
     -- Here L/M is purely inseparable of degree exactly p, and we need to construct a primitive
-    -- element of L over K. The construction relies on the fact that intermediate fields of L/K
-    -- are highly constrained when [L:K(L^p)] is small.
+    -- element of L over K. The classical Becker–MacLane proof picks α ∈ L \ M (which exists
+    -- since [L:M] = p > 1) and shows K⟮α⟯ = L via a careful intermediate-field analysis: one
+    -- shows [K⟮α⟯ : K⟮α⟯ ∩ M] = p (using L = M(α) since [L:M] = p with L/M purely inseparable),
+    -- and then leverages that M = K(L^p) to force K⟮α⟯ ∩ M = M, hence K⟮α⟯ ⊇ M, hence
+    -- K⟮α⟯ ⊇ M(α) = L. The last forcing step uses an inductive argument on [M:K] together with
+    -- a non-trivial choice of α (typically α + β for an existing primitive element β of M/K).
+    -- This argument is substantial (~80–150 lines) and not currently formalized in Mathlib.
     rw [pow_one] at hn
     sorry
 
