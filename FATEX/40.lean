@@ -17,6 +17,18 @@ theorem free_of_rank_iff (R : Type) [CommRing R] [IsLocalRing R] [IsReduced R]
     (Module.rank (IsLocalRing.ResidueField R) ((IsLocalRing.ResidueField R) ⊗[R] M) = r ∧
     ∀ p ∈ minimalPrimes R,
     Module.rank (FractionRing (R ⧸ p)) ((FractionRing (R ⧸ p)) ⊗[R] M) = r) := by
-  sorry
+  refine ⟨fun ⟨hfree, hrank⟩ => ⟨?_, ?_⟩, fun ⟨hk, hp⟩ => ?_⟩
+  · -- forward: residue field rank
+    have hbc := Module.rank_baseChange (R := IsLocalRing.ResidueField R) (S := R) (M' := M)
+    rw [hrank, Cardinal.lift_id] at hbc
+    exact hbc
+  · -- forward: each minimal prime fraction field rank
+    intro p hp
+    have hp_prime : p.IsPrime := Ideal.minimalPrimes_isPrime hp
+    have hbc := Module.rank_baseChange (R := FractionRing (R ⧸ p)) (S := R) (M' := M)
+    rw [hrank, Cardinal.lift_id] at hbc
+    exact hbc
+  · -- backward: M is free of rank r (the substantive direction)
+    sorry
 
 end Problem40
